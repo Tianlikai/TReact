@@ -1,4 +1,38 @@
 /**
+ * 复合组件
+ * 使元组件和复合组件处理方式相同
+ * @param {*} props 
+ */
+const TopLevelWrapper = function (props) {
+    this.props = props
+}
+
+TopLevelWrapper.prototype.render = function () {
+    return this.props
+}
+
+/**
+ * 
+ * @param {*} element 
+ */
+function instantiateTReactComponent(element) {
+    if (typeof element.type === 'string') {
+        return new TReactDOMComponent(element)
+    } else if(typeof element.type === 'function') { // 递归
+        return new TReactCompositeComponentWrapper(element)
+    }
+}
+
+/**
+ * @function mountComponent
+ */
+const TReactReconciler = {
+    mountComponent(internalInstance, container) {
+        return internalInstance.mountComponent(container)
+    }
+}
+
+/**
  * 创建一个简单的dom元素
  * 插入装载
  * @function mountComponent
@@ -31,30 +65,21 @@ class TReactCompositeComponentWrapper {
         this._currentElement = element
     }
 
-    mountComponent(container) {
+    performInitialMount (container) { // 分层
+        const renderedElement = this._instance.render()
+        const child = instantiateTReactComponent(renderedElement) // 递归
+        this._renderedComponent = child
+        return TReactReconciler.mountComponent(child, container)
+    }
+
+    mountComponent (container) {
         const Component = this._currentElement.type
         const componentInstance = new Component(this._currentElement.props)
-        let element = componentInstance.render()
+        this._instance = componentInstance
 
-        while (typeof element.type === 'function') { // 直到获取能渲染的元素
-            element = (new element.type(element.props)).render()
-        }
-
-        const domComponentInstance = new TReactDOMComponent(element)
-        return domComponentInstance.mountComponent(container)
+        const markup = this.performInitialMount(container)
+        return markup
     }
-}
-
-/**
- * 复合组件
- * @param {*} props 
- */
-const TopLevelWrapper = function (props) {
-    this.props = props
-}
-
-TopLevelWrapper.prototype.render = function () {
-    return this.props
 }
 
 /**
@@ -77,7 +102,7 @@ const TReact = {
         function Constructor(props) {
             this.props = props
         }
-        Constructor.prototype = Object.assign(Constructor.prototype, spec)
+        Constructor.prototype = Object.assign(Constructor.prototype, spec) // 加入render
         return Constructor
     },
 
