@@ -77,7 +77,14 @@ class TReactCompositeComponentWrapper {
         const componentInstance = new Component(this._currentElement.props)
         this._instance = componentInstance
 
+        if (componentInstance.componentWillMount) {
+            componentInstance.componentWillMount()
+        }
         const markup = this.performInitialMount(container)
+        if (componentInstance.componentDidMount) {
+            componentInstance.componentDidMount()
+        }
+
         return markup
     }
 }
@@ -109,7 +116,10 @@ const TReact = {
     render(element, container) {
         const wrapperElement = this.createElement(TopLevelWrapper, element)
         const componentInstance = new TReactCompositeComponentWrapper(wrapperElement)
-        return componentInstance.mountComponent(container)
+        return TReactReconciler.mountComponent(
+            componentInstance,
+            container
+        )
     }
 }
 
