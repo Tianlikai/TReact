@@ -1,4 +1,6 @@
 /**
+ * 创建一个简单的dom元素
+ * 插入装载
  * @function mountComponent
  */
 class TReactDOMComponent {
@@ -20,6 +22,8 @@ class TReactDOMComponent {
 }
 
 /**
+ * 兼容处理
+ * 复合组件 dom元素 等区分
  * @function mountComponent
  */
 class TReactCompositeComponentWrapper {
@@ -30,11 +34,27 @@ class TReactCompositeComponentWrapper {
     mountComponent(container) {
         const Component = this._currentElement.type
         const componentInstance = new Component(this._currentElement.props)
-        const element = componentInstance.render()
+        let element = componentInstance.render()
 
-        const domComponentInstance = new FeactDOMComponent(element)
+        while (typeof element.type === 'function') { // 直到获取能渲染的元素
+            element = (new element.type(element.props)).render()
+        }
+
+        const domComponentInstance = new TReactDOMComponent(element)
         return domComponentInstance.mountComponent(container)
     }
+}
+
+/**
+ * 复合组件
+ * @param {*} props 
+ */
+const TopLevelWrapper = function (props) {
+    this.props = props
+}
+
+TopLevelWrapper.prototype.render = function () {
+    return this.props
 }
 
 /**
@@ -62,12 +82,8 @@ const TReact = {
     },
 
     render(element, container) {
-        const componentInstance = new TReactDOMComponent(element)
-        return componentInstance.mountComponent(container)
-    },
-
-    renderCompos(element, container) {
-        const componentInstance = new TReactCompositeComponentWrapper(element)
+        const wrapperElement = this.createElement(TopLevelWrapper, element)
+        const componentInstance = new TReactCompositeComponentWrapper(wrapperElement)
         return componentInstance.mountComponent(container)
     }
 }
@@ -78,14 +94,15 @@ const MyTitle = TReact.createClass({
     }
 })
 
-// const mount = TReact.createElement(MyTitle, { message: 'hey there Feact' })
+// const mount = TReact.createElement('h1', null, 'hello world')
 // const root = document.getElementById('root')
 
 // TReact.render(
 //     mount,
 //     root
 // )
-const mount = TReact.createElement('h1', null, 'hello world')
+
+const mount = TReact.createElement(MyTitle, { message: 'hey there TReact' })
 const root = document.getElementById('root')
 
 TReact.render(
