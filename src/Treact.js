@@ -77,7 +77,7 @@ const TReact = {
         function Constructor(props) {
             this.props = props
         }
-        Constructor.prototype.render = spec.render
+        Constructor.prototype = Object.assign(Constructor.prototype, spec)
         return Constructor
     },
 
