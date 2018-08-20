@@ -10,7 +10,7 @@ module.exports = {
     entry: './src/index.js',
     output: {
         path: path.resolve(distDir),
-        filename: '[name].min.js',
+        filename: env === 'dev' ? '[name].js' : '[name].min.js',
     },
     devtool: env === 'dev' ? 'source-map' : false,
     module: {
