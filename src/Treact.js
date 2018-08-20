@@ -17,7 +17,9 @@ function getTopLevelComponentInContainer (container) {
  * @param {*} nextElement 
  */
 function updateRootComponent (prevComponent, nextElement) {
-    TReactReconciler.receiveComponent(prevComponent, nextElement);
+    TReactReconciler.receiveComponent(
+        prevComponent,
+        nextElement)
 }
 
 /**
@@ -32,7 +34,10 @@ function renderNewRootComponent (element, container) {
         componentInstance,
         container
     )
+    // 缓存到组件容器中
+    // 用于之后判断该组建是否存在
     container.__TReactComponentInstance = componentInstance._renderedComponent
+
     return markUp
 }
 
