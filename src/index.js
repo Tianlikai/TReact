@@ -39,6 +39,7 @@ import TReact from './TReact'
 //     );
 // }, 2000);
 
+console.log(1)
 /**
  * 复合组件测试
  */
