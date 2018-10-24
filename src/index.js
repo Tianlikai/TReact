@@ -1,65 +1,38 @@
-import TReact from './TReact'
+import React from "./React";
 
-// const MyTitle = TReact.createClass({
-//     render() {
-//         return TReact.createElement('h1', null, this.props.message)
-//     }
-// })
+// 定义一个TodoList复合组件
+var TodoList = React.createClass({
+  getInitialState: function() {
+    return { items: [] };
+  },
+  add: function() {
+    var nextItems = this.state.items.concat([this.state.text]);
+    this.setState({ items: nextItems, text: "" });
+  },
+  onChange: function(e) {
+    this.setState({ text: e.target.value });
+  },
+  render: function() {
+    var createItem = function(itemText) {
+      return React.createElement("div", null, itemText);
+    };
 
-// const mount = TReact.createElement('h1', null, 'hello world')
-// const root = document.getElementById('root')
+    var lists = this.state.items.map(createItem);
+    var input = React.createElement("input", {
+      onkeyup: this.onChange.bind(this),
+      value: this.state.text
+    });
+    var button = React.createElement(
+      "p",
+      { onclick: this.add.bind(this) },
+      "Add#" + (this.state.items.length + 1)
+    );
+    var children = [input, button].concat(lists);
 
-// TReact.render(
-//     mount,
-//     root
-// )
+    return React.createElement("div", null, children);
+  }
+});
 
-// const mount = TReact.createElement(MyTitle, { message: 'hey there TReact' })
-// const root = document.getElementById('root')
-
-// TReact.render(
-//     mount,
-//     root
-// )
-
-/**
- * 元组件测试
- */
-// const root = document.getElementById('root')
-
-// TReact.render(
-//     TReact.createElement('h1', null, 'hello'),
-//     root
-// );
-
-// setTimeout(function() {
-//     TReact.render(
-//         TReact.createElement('h1', null, 'hello again'),
-//         root
-//     );
-// }, 2000);
-
-console.log(1)
-/**
- * 复合组件测试
- */
-const root = document.getElementById('root')
-const MyCoolComponent = TReact.createClass({
-    render() {
-        return TReact.createElement('h1', null, this.props.myProp)
-    }
-})
-
-TReact.render(
-    TReact.createElement(MyCoolComponent, { myProp: 'hi' }),
-    root
-)
-
-// some time passes
-
-setTimeout(function() {
-    TReact.render(
-        TReact.createElement(MyCoolComponent, { myProp: 'hi again' }),
-        root
-    )
-}, 2000)
+var Entry = React.createElement(TodoList);
+var root = document.getElementById("root");
+React.render(Entry, root);
