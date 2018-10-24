@@ -57,7 +57,7 @@ ReactDOMComponent.prototype.mountComponent = function(rootID) {
   var childrenInstances = []; // 保存子节点component 实例
   var that = this;
 
-  $.each(children, function(key, child) {
+  children.forEach((child, key) => {
     var childComponentInstance = instantiateReactComponent(child);
     // 为子节点添加标记
     childComponentInstance._mountIndex = key;

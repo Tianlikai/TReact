@@ -11,24 +11,28 @@ import ReactCompositeComponent from "./ReactCompositeComponent";
  * @return {*} 返回一个具体的component实例
  */
 function instantiateReactComponent(node) {
-  //文本节点的情况
+  // 文本节点的情况
   if (typeof node === "string" || typeof node === "number") {
     return new ReactDOMTextComponent(node);
   }
-  //浏览器默认节点的情况
+  // 浏览器默认节点的情况
   if (typeof node === "object" && typeof node.type === "string") {
-    //注意这里，使用了一种新的component
+    // 注意这里，使用了一种新的component
     return new ReactDOMComponent(node);
   }
-  //自定义的元素节点
+  // 自定义的元素节点
   if (typeof node === "object" && typeof node.type === "function") {
-    //注意这里，使用新的component,专门针对自定义元素
+    // 注意这里，使用新的component,专门针对自定义元素
     return new ReactCompositeComponent(node);
   }
 }
 
 const React = {
   nextReactRootIndex: 0,
+  /**
+   * 创建 ReactClass
+   * @param {*} spec 传入的对象
+   */
   createClass: function(spec) {
     var Constructor = function(props) {
       this.props = props;
@@ -38,12 +42,17 @@ const React = {
     Constructor.prototype = new ReactClass();
     Constructor.prototype.constructor = Constructor;
 
-    $.extend(Constructor.prototype, spec);
+    Object.assign(Constructor.prototype, spec);
     return Constructor;
   },
+  /**
+   * @param {*} type 元素的 component 类型
+   * @param {*} config 元素配置
+   * @param {*} children 元素的子元素
+   */
   createElement: function(type, config, children) {
-    var props = {},
-      propName;
+    var props = {};
+    var propName;
     config = config || {};
 
     var key = config.key || null;
@@ -56,9 +65,9 @@ const React = {
 
     var childrenLength = arguments.length - 2;
     if (childrenLength === 1) {
-      props.children = $.isArray(children) ? children : [children];
+      props.children = Array.isArray(children) ? children : [children];
     } else if (childrenLength > 1) {
-      var childArray = Array(childrenLength);
+      var childArray = [];
       for (var i = 0; i < childrenLength; i++) {
         childArray[i] = arguments[i + 2];
       }
