@@ -5,6 +5,11 @@ import ReactDOMTextComponent from "./ReactDOMTextComponent";
 import ReactDOMComponent from "./ReactDOMComponent";
 import ReactCompositeComponent from "./ReactCompositeComponent";
 
+/**
+ * 根据元素类型实例化一个具体的component
+ * @param {*} node ReactElement
+ * @return {*} 返回一个具体的component实例
+ */
 function instantiateReactComponent(node) {
   //文本节点的情况
   if (typeof node === "string" || typeof node === "number") {
@@ -61,11 +66,18 @@ const React = {
     }
     return new ReactElement(type, key, props);
   },
+  /**
+   * 接收一个React元素，和一个dom节点
+   * @param {*} element React元素
+   * @param {*} container 负责装载的dom
+   */
   render: function(element, container) {
+    // 实例化组件
     var componentInstance = instantiateReactComponent(element);
+    // 组件完成dom装载
     var markup = componentInstance.mountComponent(React.nextReactRootIndex++);
+    // 将装载好的 dom 放入 container 中
     $(container).html(markup);
-
     $(document).trigger("mountReady");
   }
 };
