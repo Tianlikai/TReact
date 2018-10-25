@@ -10830,7 +10830,7 @@ ReactDOMComponent.prototype.receiveComponent = function (nextElement) {
 };
 
 /**
- *
+ * 更新属性
  * @param {*} lastProps
  * @param {*} nextProps
  */
@@ -10883,15 +10883,22 @@ var updateDepth = 0;
 // 全局的更新队列，所有的差异都存在这里
 var diffQueue = [];
 
-// 用于将childNode插入到指定位置
-function insertChildAt(parentNode, childNode, index) {
+/**
+ *
+ * @param {*} parentNode
+ * @param {*} childNode
+ * @param {*} index
+ */function insertChildAt(parentNode, childNode, index) {
   var beforeChild = parentNode.children().get(index);
   beforeChild ? childNode.insertBefore(beforeChild) : childNode.appendTo(parentNode);
 }
 
-// 主要用来生成子节点 elements 的 component 集合
-// 这边注意，有个判断逻辑，如果发现是更新，就会继续使用以前的componentInstance,调用对应的receiveComponent。
-// 如果是新的节点，就会重新生成一个新的componentInstance，
+/**
+ * 生成子节点 elements 的 component 集合
+ * @param {object} prevChildren 前一个 component 集合
+ * @param {Array} nextChildrenElements 新传入的子节点element数组
+ * @return {object} 返回一个映射
+ */
 function generateComponentChildren(prevChildren, nextChildrenElements) {
   var nextChildren = {};
   nextChildrenElements = nextChildrenElements || [];
@@ -10918,7 +10925,11 @@ function generateComponentChildren(prevChildren, nextChildrenElements) {
   return nextChildren;
 }
 
-// 普通的children是一个数组，此方法把它转换成一个map,key就是element的key,如果是text节点或者element创建时并没有传入key,就直接用在数组里的index标识
+/**
+ * 将数组转换为映射
+ * @param {Array} componentChildren
+ * @return {object} 返回一个映射
+ */
 function flattenChildren(componentChildren) {
   var child;
   var name;
@@ -10943,7 +10954,11 @@ ReactDOMComponent.prototype._updateDOMChildren = function (nextChildrenElements)
   }
 };
 
-// _diff用来递归找出差别,组装差异对象,添加到更新队列diffQueue。
+/**
+ * _diff用来递归找出差别,组装差异对象,添加到更新队列diffQueue。
+ * @param {*} diffQueue
+ * @param {*} nextChildrenElements
+ */
 ReactDOMComponent.prototype._diff = function (diffQueue, nextChildrenElements) {
   var self = this;
   // 拿到之前的子节点的 component类型对象的集合,这个是在刚开始渲染时赋值的，记不得的可以翻上面
@@ -11037,7 +11052,11 @@ ReactDOMComponent.prototype._diff = function (diffQueue, nextChildrenElements) {
   }
 };
 
-ReactDOMComponent.prototype._patch = function (updates) {
+/**
+ *
+ * @param {*} diffQueue
+ */
+ReactDOMComponent.prototype._patch = function (diffQueue) {
   var update;
   var initialChildren = {};
   var deleteChildren = [];
@@ -11247,43 +11266,47 @@ __webpack_require__.r(__webpack_exports__);
 /**
  * ReactCompositeComponent组件
  */
-var CompositeComponent = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createClass({
-  getInitialState: function () {
-    return {
-      count: 0
-    };
-  },
-  componentWillMount: function () {
-    console.log("声明周期: " + "componentWillMount");
-  },
-  componentDidMount: function () {
-    console.log("声明周期: " + "componentDidMount");
-  },
-  onChange: function (e) {
-    var count = ++this.state.count;
-    this.setState({
-      count: count
-    });
-  },
-  render: function () {
-    const count = this.state.count;
-    var h3 = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement("h3", { onclick: this.onChange.bind(this), class: "h3" }, `click me ${count}`);
-    var children = [h3];
+// var CompositeComponent = React.createClass({
+//   getInitialState: function() {
+//     return {
+//       count: 0
+//     };
+//   },
+//   componentWillMount: function() {
+//     console.log("声明周期: " + "componentWillMount");
+//   },
+//   componentDidMount: function() {
+//     console.log("声明周期: " + "componentDidMount");
+//   },
+//   onChange: function(e) {
+//     var count = ++this.state.count;
+//     this.setState({
+//       count: count
+//     });
+//   },
+//   render: function() {
+//     const count = this.state.count;
+//     var h3 = React.createElement(
+//       "h3",
+//       { onclick: this.onChange.bind(this), class: "h3" },
+//       `click me ${count}`
+//     );
+//     var children = [h3];
 
-    return _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement("div", null, children);
-  }
-});
-var CompositeElement = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(CompositeComponent);
-var root = document.getElementById("root");
+//     return React.createElement("div", null, children);
+//   }
+// });
+// var CompositeElement = React.createElement(CompositeComponent);
+// var root = document.getElementById("root");
 
-_React__WEBPACK_IMPORTED_MODULE_0__["default"].render(CompositeElement, root);
+// React.render(CompositeElement, root);
 
 /**
  * TodoList组件
  */
-// var Entry = React.createElement(TodoList);
-// var root = document.getElementById("root");
-// React.render(Entry, root);
+var Entry = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(_demo_TodoList__WEBPACK_IMPORTED_MODULE_1__["default"]);
+var root = document.getElementById("root");
+_React__WEBPACK_IMPORTED_MODULE_0__["default"].render(Entry, root);
 
 /***/ }),
 
@@ -11307,8 +11330,10 @@ function _shouldUpdateReactComponent(prevElement, nextElement) {
     var prevType = typeof prevElement;
     var nextType = typeof nextElement;
     if (prevType === "string" || prevType === "number") {
+      // 文本节点比较是否为相同类型节点
       return nextType === "string" || nextType === "number";
     } else {
+      // 通过type 和 key 判断是否为同类型节点和同一个节点
       return nextType === "object" && prevElement.type === nextElement.type && prevElement.key === nextElement.key;
     }
   }

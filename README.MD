@@ -719,3 +719,377 @@ ReactDOMComponent.prototype.receiveComponent = function(nextElement) {
   this._updateDOMChildren(nextElement.props.children);
 };
 ```
+
+`先看看，更新属性怎么变更：`
+
+```
+/**
+ * 更新属性
+ * @param {*} lastProps
+ * @param {*} nextProps
+ */
+ReactDOMComponent.prototype._updateDOMProperties = function(
+  lastProps,
+  nextProps
+) {
+  // 当老属性不在新属性的集合里时，需要删除属性
+  var propKey;
+  for (propKey in lastProps) {
+    if (
+      nextProps.hasOwnProperty(propKey) ||
+      !lastProps.hasOwnProperty(propKey)
+    ) {
+      // 新属性中有，且不再老属性的原型中
+      continue;
+    }
+    if (/^on[A-Za-z]/.test(propKey)) {
+      var eventType = propKey.replace("on", "");
+      // 特殊事件，需要去掉事件监听
+      $(document).undelegate(
+        '[data-reactid="' + this._rootNodeID + '"]',
+        eventType,
+        lastProps[propKey]
+      );
+      continue;
+    }
+
+    // 删除不需要的属性
+    $('[data-reactid="' + this._rootNodeID + '"]').removeAttr(propKey);
+  }
+
+  // 对于新的事件，需要写到dom上
+  for (propKey in nextProps) {
+    if (/^on[A-Za-z]/.test(propKey)) {
+      var eventType = propKey.replace("on", "");
+      // 删除老的事件绑定
+      lastProps[propKey] &&
+        $(document).undelegate(
+          '[data-reactid="' + this._rootNodeID + '"]',
+          eventType,
+          lastProps[propKey]
+        );
+      // 针对当前的节点添加事件代理,以_rootNodeID为命名空间
+      $(document).delegate(
+        '[data-reactid="' + this._rootNodeID + '"]',
+        eventType + "." + this._rootNodeID,
+        nextProps[propKey]
+      );
+      continue;
+    }
+
+    if (propKey == "children") continue;
+
+    // 添加新的属性，重写同名属性
+    $('[data-reactid="' + this._rootNodeID + '"]').prop(
+      propKey,
+      nextProps[propKey]
+    );
+  }
+};
+```
+
+> 属性的变更并不是特别复杂，主要就是找到以前老的不用的属性直接去掉，新的属性赋值，并且注意其中特殊的事件属性做出特殊处理就行了。
+
+`子节点更新，也是最复杂的部分：`
+
+```
+// 全局的更新深度标识
+var updateDepth = 0;
+// 全局的更新队列，所有的差异都存在这里
+var diffQueue = [];
+
+ReactDOMComponent.prototype._updateDOMChildren = function(
+  nextChildrenElements
+) {
+  updateDepth++;
+  // _diff用来递归找出差别,组装差异对象,添加到更新队列diffQueue。
+  this._diff(diffQueue, nextChildrenElements);
+  updateDepth--;
+  if (updateDepth == 0) {
+    // 在需要的时候调用patch，执行具体的dom操作
+    this._patch(diffQueue);
+    diffQueue = [];
+  }
+};
+```
+
+> 就像我们之前说的一样，更新子节点包含两个部分，一个是递归的分析差异，把差异添加到队列中。然后在合适的时机调用\_patch 把差异应用到 dom 上。那么什么是合适的时机，updateDepth 又是干嘛的？这里需要注意的是，\_diff 内部也会递归调用子节点的 receiveComponent 于是当某个子节点也是浏览器普通节点，就也会走\_updateDOMChildren 这一步。所以这里使用了 updateDepth 来记录递归的过程，只有等递归回来 updateDepth 为 0 时，代表整个差异已经分析完毕，可以开始使用 patch 来处理差异队列了。
+
+### diff 实现
+
+```
+// 差异更新的几种类型
+var UPDATE_TYPES = {
+  MOVE_EXISTING: 1,
+  REMOVE_NODE: 2,
+  INSERT_MARKUP: 3
+};
+
+/**
+ * 生成子节点 elements 的 component 集合
+ * @param {object} prevChildren 前一个 component 集合
+ * @param {Array} nextChildrenElements 新传入的子节点element数组
+ * @return {object} 返回一个映射
+ */
+function generateComponentChildren(prevChildren, nextChildrenElements) {
+  var nextChildren = {};
+  nextChildrenElements = nextChildrenElements || [];
+  $.each(nextChildrenElements, function(index, element) {
+    var name = element.key ? element.key : index;
+    var prevChild = prevChildren && prevChildren[name];
+    var prevElement = prevChild && prevChild._currentElement;
+    var nextElement = element;
+
+    // 调用_shouldUpdateReactComponent判断是否是更新
+    if (_shouldUpdateReactComponent(prevElement, nextElement)) {
+      // 更新的话直接递归调用子节点的receiveComponent就好了
+      prevChild.receiveComponent(nextElement);
+      // 然后继续使用老的component
+      nextChildren[name] = prevChild;
+    } else {
+      // 对于没有老的，那就重新新增一个，重新生成一个component
+      var nextChildInstance = instantiateReactComponent(nextElement, null);
+      // 使用新的component
+      nextChildren[name] = nextChildInstance;
+    }
+  });
+
+  return nextChildren;
+}
+
+/**
+ * 将数组转换为映射
+ * @param {Array} componentChildren
+ * @return {object} 返回一个映射
+ */
+function flattenChildren(componentChildren) {
+  var child;
+  var name;
+  var childrenMap = {};
+  for (var i = 0; i < componentChildren.length; i++) {
+    child = componentChildren[i];
+    name =
+      child && child._currentelement && child._currentelement.key
+        ? child._currentelement.key
+        : i.toString(36);
+    childrenMap[name] = child;
+  }
+  return childrenMap;
+}
+
+/**
+ * _diff用来递归找出差别,组装差异对象,添加到更新队列diffQueue。
+ * @param {*} diffQueue
+ * @param {*} nextChildrenElements
+ */
+ReactDOMComponent.prototype._diff = function(diffQueue, nextChildrenElements) {
+  var self = this;
+  // 拿到之前的子节点的 component类型对象的集合,这个是在刚开始渲染时赋值的，记不得的可以翻上面
+  // _renderedChildren 本来是数组，我们搞成map
+  var prevChildren = flattenChildren(self._renderedChildren);
+  // 生成新的子节点的component对象集合，这里注意，会复用老的component对象
+  var nextChildren = generateComponentChildren(
+    prevChildren,
+    nextChildrenElements
+  );
+  // 重新赋值_renderedChildren，使用最新的。
+  self._renderedChildren = [];
+  $.each(nextChildren, function(key, instance) {
+    self._renderedChildren.push(instance);
+  });
+
+  /**注意新增代码**/
+  var lastIndex = 0; // 代表访问的最后一次的老的集合的位置
+
+  var nextIndex = 0; // 代表到达的新的节点的index
+  // 通过对比两个集合的差异，组装差异节点添加到队列中
+  for (name in nextChildren) {
+    if (!nextChildren.hasOwnProperty(name)) {
+      continue;
+    }
+    var prevChild = prevChildren && prevChildren[name];
+    var nextChild = nextChildren[name];
+    // 相同的话，说明是使用的同一个component,所以我们需要做移动的操作
+    if (prevChild === nextChild) {
+      // 添加差异对象，类型：MOVE_EXISTING
+      /**注意新增代码**/
+      prevChild._mountIndex < lastIndex &&
+        diffQueue.push({
+          parentId: self._rootNodeID,
+          parentNode: $("[data-reactid=" + self._rootNodeID + "]"),
+          type: UPDATE_TYPES.MOVE_EXISTING,
+          fromIndex: prevChild._mountIndex,
+          toIndex: nextIndex
+        });
+      /**注意新增代码**/
+      lastIndex = Math.max(prevChild._mountIndex, lastIndex);
+    } else {
+      // 如果不相同，说明是新增加的节点
+      // 但是如果老的还存在，就是element不同，但是component一样。我们需要把它对应的老的element删除。
+      if (prevChild) {
+        // 添加差异对象，类型：REMOVE_NODE
+        diffQueue.push({
+          parentId: self._rootNodeID,
+          parentNode: $("[data-reactid=" + self._rootNodeID + "]"),
+          type: UPDATE_TYPES.REMOVE_NODE,
+          fromIndex: prevChild._mountIndex,
+          toIndex: null
+        });
+
+        // 如果以前已经渲染过了，记得先去掉以前所有的事件监听，通过命名空间全部清空
+        if (prevChild._rootNodeID) {
+          $(document).undelegate("." + prevChild._rootNodeID);
+        }
+
+        /**注意新增代码**/
+        lastIndex = Math.max(prevChild._mountIndex, lastIndex);
+      }
+      // 新增加的节点，也组装差异对象放到队列里
+      // 添加差异对象，类型：INSERT_MARKUP
+      diffQueue.push({
+        parentId: self._rootNodeID,
+        parentNode: $("[data-reactid=" + self._rootNodeID + "]"),
+        type: UPDATE_TYPES.INSERT_MARKUP,
+        fromIndex: null,
+        toIndex: nextIndex,
+        markup: nextChild.mountComponent(self._rootNodeID + "." + name) //新增的节点，多一个此属性，表示新节点的dom内容
+      });
+    }
+    // 更新mount的index
+    nextChild._mountIndex = nextIndex;
+    nextIndex++;
+  }
+
+  // 对于老的节点里有，新的节点里没有的那些，也全都删除掉
+  for (name in prevChildren) {
+    if (
+      prevChildren.hasOwnProperty(name) &&
+      !(nextChildren && nextChildren.hasOwnProperty(name))
+    ) {
+      // 添加差异对象，类型：REMOVE_NODE
+      diffQueue.push({
+        parentId: self._rootNodeID,
+        parentNode: $("[data-reactid=" + self._rootNodeID + "]"),
+        type: UPDATE_TYPES.REMOVE_NODE,
+        fromIndex: prevChildren[name]._mountIndex,
+        toIndex: null
+      });
+      // 如果以前已经渲染过了，记得先去掉以前所有的事件监听
+      if (prevChildren[name]._rootNodeID) {
+        $(document).undelegate("." + prevChildren[name]._rootNodeID);
+      }
+    }
+  }
+};
+```
+
+> 注意 flattenChildren 我们这里把数组集合转成了对象 map,以 element 的 key 作为标识，当然对于 text 文本或者没有传入 key 的 element,直接用 index 作为标识。通过这些标识，我们可以从类型的角度来判断两个 component 是否是一样的。
+
+> generateComponentChildren 会尽量的复用以前的 component，也就是那些坑，当发现可以复用 component（也就是 key 一致）时，就还用以前的，只需要调用他对应的更新方法 receiveComponent 就行了，这样就会递归的去获取子节点的差异对象然后放到队列了。如果发现不能复用那就是新的节点，我们就需要 instantiateReactComponent 重新生成一个新的 component。
+
+> lastIndex，这个代表最后一次访问的老集合节点的最大的位置。
+> 而我们加了个判断，只有\_mountIndex 小于这个 lastIndex 的才会需要加入差异队列。有了这个判断上面的例子 2 就不需要 move。而程序也可以好好的运行，实际上大部分都是 2 这种情况。
+
+这是一种顺序优化，lastIndex 一直在更新，代表了当前访问的最右的老的集合的元素。
+我们假设上一个元素是 A,添加后更新了 lastIndex。
+如果我们这时候来个新元素 B，比 lastIndex 还大说明当前元素在老的集合里面就比上一个 A 靠后。所以这个元素就算不加入差异队列，也不会影响到其他人，不会影响到后面的 path 插入节点。因为我们从 patch 里面知道，新的集合都是按顺序从头开始插入元素的，只有当新元素比 lastIndex 小时才需要变更。其实只要仔细推敲下上面那个例子，就可以理解这种优化手段了。
+查看[React diff 策略](https://zhuanlan.zhihu.com/p/20346379)
+
+### \_patch 的实现
+
+```
+/**
+ *
+ * @param {*} parentNode
+ * @param {*} childNode
+ * @param {*} index
+ */ function insertChildAt(parentNode, childNode, index) {
+  var beforeChild = parentNode.children().get(index);
+  beforeChild
+    ? childNode.insertBefore(beforeChild)
+    : childNode.appendTo(parentNode);
+}
+
+/**
+ *
+ * @param {*} diffQueue
+ */
+ReactDOMComponent.prototype._patch = function(diffQueue) {
+  var update;
+  var initialChildren = {};
+  var deleteChildren = [];
+  for (var i = 0; i < updates.length; i++) {
+    update = updates[i];
+    if (
+      update.type === UPDATE_TYPES.MOVE_EXISTING ||
+      update.type === UPDATE_TYPES.REMOVE_NODE
+    ) {
+      var updatedIndex = update.fromIndex;
+      var updatedChild = $(update.parentNode.children().get(updatedIndex));
+      var parentID = update.parentID;
+
+      // 所有需要更新的节点都保存下来，方便后面使用
+      initialChildren[parentID] = initialChildren[parentID] || [];
+      // 使用parentID作为简易命名空间
+      initialChildren[parentID][updatedIndex] = updatedChild;
+
+      // 所有需要修改的节点先删除,对于move的，后面再重新插入到正确的位置即可
+      deleteChildren.push(updatedChild);
+    }
+  }
+
+  // 删除所有需要先删除的
+  $.each(deleteChildren, function(index, child) {
+    $(child).remove();
+  });
+
+  // 再遍历一次，这次处理新增的节点，还有修改的节点这里也要重新插入
+  for (var k = 0; k < updates.length; k++) {
+    update = updates[k];
+    switch (update.type) {
+      case UPDATE_TYPES.INSERT_MARKUP:
+        insertChildAt(update.parentNode, $(update.markup), update.toIndex);
+        break;
+      case UPDATE_TYPES.MOVE_EXISTING:
+        insertChildAt(
+          update.parentNode,
+          initialChildren[update.parentID][update.fromIndex],
+          update.toIndex
+        );
+        break;
+      case UPDATE_TYPES.REMOVE_NODE:
+        // 什么都不需要做，因为上面已经帮忙删除掉了
+        break;
+    }
+  }
+};
+```
+
+> \_patch 主要就是挨个遍历差异队列，遍历两次，第一次删除掉所有需要变动的节点，然后第二次插入新的节点还有修改的节点。这里为什么可以直接挨个的插入呢？原因就是我们在 diff 阶段添加差异节点到差异队列时，本身就是有序的，也就是说对于新增节点（包括 move 和 insert 的）在队列里的顺序就是最终 dom 的顺序，所以我们才可以挨个的直接根据 index 去塞入节点。
+
+`这样整个的更新机制就完成了。我们再来简单回顾下 React 的差异算法：`
+
+> 首先是所有的 component 都实现了 receiveComponent 来负责自己的更新，而浏览器默认元素的更新最为复杂，也就是经常说的 diff algorithm。
+
+> react 有一个全局\_shouldUpdateReactComponent 用来根据 element 的 key 来判断是更新还是重新渲染，这是第一个差异判断。比如自定义元素里，就使用这个判断，通过这种标识判断，会变得特别高效。
+
+每个类型的元素都要处理好自己的更新：
+
+- 自定义元素的更新，主要是更新 render 出的节点，做甩手掌柜交给 render 出的节点的对应 component 去管理更新。
+- text 节点的更新很简单，直接更新文案。
+- 浏览器基本元素的更新，分为两块：
+
+  - 先是更新属性，对比出前后属性的不同，局部更新。并且处理特殊属性，比如事件绑定。
+  - 然后是子节点的更新，子节点更新主要是找出差异对象，找差异对象的时候也会使用上面的\_shouldUpdateReactComponent 来判断，如果是可以直接更新的就会递归调用子节点的更新，这样也会递归查找差异对象，这里还会使用 lastIndex 这种做一种优化，使一些节点保留位置，之后根据差异对象操作 dom 元素（位置变动，删除，
+
+### end
+
+这只是个玩具，但实现了 React 最核心的功能，虚拟节点，差异算法，单向数据更新都在这里了。还有很多 React 优秀的东西没有实现，比如对象生成时内存的线程池管理，批量更新机制，事件的优化，服务端的渲染，immutable data 等等。这些东西受限于篇幅就不具体展开了。
+
+React 作为一种解决方案，虚拟节点的想法比较新奇，不过个人还是不能接受这种别扭的写法。使用 React，就要使用他那一整套的开发方式，而他核心的功能其实只是一个差异算法，而这种其实已经有相关的库实现了。
+
+相关资料：
+
+- [React diff 策略](https://zhuanlan.zhihu.com/p/20346379)
+- [原文地址](https://github.com/purplebamboo/blog/issues)
+- react 撸后台: [企业级中后台项目](https://juejin.im/post/5b715c006fb9a009b628faaa)
