@@ -1,4 +1,4 @@
-import React from "./React";
+import React from "../React";
 
 // 定义一个TodoList复合组件
 const TodoList = React.createClass({

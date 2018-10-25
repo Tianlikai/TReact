@@ -11159,16 +11159,16 @@ function ReactElement(type, key, props) {
 
 /***/ }),
 
-/***/ "./src/TodoList.js":
-/*!*************************!*\
-  !*** ./src/TodoList.js ***!
-  \*************************/
+/***/ "./src/component/TodoList.js":
+/*!***********************************!*\
+  !*** ./src/component/TodoList.js ***!
+  \***********************************/
 /*! exports provided: default */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _React__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./React */ "./src/React.js");
+/* harmony import */ var _React__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../React */ "./src/React.js");
 
 
 // 定义一个TodoList复合组件
@@ -11214,11 +11214,11 @@ const TodoList = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createClass({
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _React__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./React */ "./src/React.js");
-/* harmony import */ var _TodoList__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./TodoList */ "./src/TodoList.js");
+/* harmony import */ var _component_TodoList__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./component/TodoList */ "./src/component/TodoList.js");
 
 
 
-var Entry = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(_TodoList__WEBPACK_IMPORTED_MODULE_1__["default"]);
+var Entry = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(_component_TodoList__WEBPACK_IMPORTED_MODULE_1__["default"]);
 var root = document.getElementById("root");
 _React__WEBPACK_IMPORTED_MODULE_0__["default"].render(Entry, root);
 
