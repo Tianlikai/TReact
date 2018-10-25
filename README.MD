@@ -15,6 +15,12 @@ React 的代码还是非常复杂的，虽然这里是一个简化版本。但�
 - 组件声明周期
 - 事件处理
 
+[本文代码仓库](https://github.com/Tianlikai/TReact)
+
+- 直接在游览器中打开 main.html 中查看效果
+- 更改代码请先执行执行`npm i`安装依赖(使用了部分 es6 代码)
+- 修改代码后请执行`npm run dev`重新编译代码
+
 ## 实现一个 hello React！的渲染
 
 看如下代码：
