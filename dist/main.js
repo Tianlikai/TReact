@@ -11056,7 +11056,7 @@ ReactDOMComponent.prototype._diff = function (diffQueue, nextChildrenElements) {
  *
  * @param {*} diffQueue
  */
-ReactDOMComponent.prototype._patch = function (diffQueue) {
+ReactDOMComponent.prototype._patch = function (updates) {
   var update;
   var initialChildren = {};
   var deleteChildren = [];
