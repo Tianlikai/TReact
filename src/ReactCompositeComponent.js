@@ -71,7 +71,7 @@ ReactCompositeComponent.prototype.receiveComponent = function(
 
   var inst = this._instance;
   // 合并state
-  var nextState = $.extend(inst.state, newState);
+  var nextState = Object.assign(inst.state, newState);
   var nextProps = this._currentElement.props;
 
   // 更新state

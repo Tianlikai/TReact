@@ -15,7 +15,7 @@ React 的代码还是非常复杂的，虽然这里是一个简化版本。但�
 - 组件声明周期
 - 事件处理
 
-## 实现一个‘hello React！’的渲染
+## 实现一个 hello React！的渲染
 
 看如下代码：
 
@@ -494,3 +494,228 @@ ReactCompositeComponent.prototype.mountComponent = function(rootID) {
 初始化渲染的大致流程如下:
 
 ![](./WechatIMG8.jpeg)
+
+## 实现一个简单的更新机制
+
+一般在 React 中我们需要更新时都是调用的 setState 方法。所以本文的更新就基于 setState 实现。看下面的调用方式:
+
+```
+/**
+ * ReactCompositeComponent组件
+ */
+var CompositeComponent = React.createClass({
+  getInitialState: function() {
+    return {
+      count: 0
+    };
+  },
+  componentWillMount: function() {
+    console.log("声明周期: " + "componentWillMount");
+  },
+  componentDidMount: function() {
+    console.log("声明周期: " + "componentDidMount");
+  },
+  onChange: function(e) {
+    var count = ++this.state.count;
+    this.setState({
+      count: count
+    });
+  },
+  render: function() {
+    const count = this.state.count;
+    var h3 = React.createElement(
+      "h3",
+      { onclick: this.onChange.bind(this), class: "h3" },
+      `click me ${count}`
+    );
+    var children = [h3];
+
+    return React.createElement("div", null, children);
+  }
+});
+var CompositeElement = React.createElement(CompositeComponent);
+var root = document.getElementById("root");
+
+React.render(CompositeElement, root);
+
+// 生成html
+<div id="root">
+  <div data-reactid="0">
+    <h3 data-reactid="0.0" class="h3">
+      <span data-reactid="0.0.0">click me 0</span>
+    </h3>
+  </div>
+</div>
+
+// 点击click me 计数会递增
+```
+
+> 点击文字就会调用 setState 走更新流程，我们回顾一下 ReactClass，看一下 setState 的实现
+
+```
+/**
+ * 更新
+ * @param {*} newState 新状态
+ */
+ReactClass.prototype.setState = function(newState) {
+  // 拿到ReactCompositeComponent的实例
+  // 在装载的时候保存
+  // 代码：this._reactInternalInstance = this
+  this._reactInternalInstance.receiveComponent(null, newState);
+};
+```
+
+> 可以看到 setState 主要调用了对应的 component 的 receiveComponent 来实现更新。所有的挂载，更新都应该交给对应的 component 来管理。所以就像所有的 component 都实现了 mountComponent 来处理第一次渲染，所有的 component 类都应该实现 receiveComponent 用来处理自己的更新。
+
+### 文本节点的 receiveComponent
+
+文本节点的更新比较简单，拿到新的文本进行比较，不同则直接替换整个节点
+
+```
+/**
+ * component 类 更新
+ * @param {*} newText
+ */
+ReactDOMTextComponent.prototype.receiveComponent = function(nextText) {
+  var nextStringText = "" + nextText;
+  // 跟以前保存的字符串比较
+  if (nextStringText !== this._currentElement) {
+    this._currentElement = nextStringText;
+    // 替换整个节点
+    $('[data-reactid="' + this._rootNodeID + '"]').html(this._currentElement);
+  }
+};
+```
+
+### 自定义元素的 receiveComponent
+
+先来看自定义元素的 receiveComponent 的实现
+
+```
+/**
+ * component 类 更新
+ * @param {*} nextElement
+ * @param {*} newState
+ */
+ReactCompositeComponent.prototype.receiveComponent = function(
+  nextElement,
+  newState
+) {
+  // 如果接受了新的element，则直接使用最新的element
+  this._currentElement = nextElement || this._currentElement;
+
+  var inst = this._instance;
+  // 合并state
+  var nextState = Object.assign(inst.state, newState);
+  var nextProps = this._currentElement.props;
+
+  // 更新state
+  inst.state = nextState;
+
+  // 生命周期方法
+  if (
+    inst.shouldComponentUpdate &&
+    inst.shouldComponentUpdate(nextProps, nextState) === false
+  ) {
+    // 如果实例的 shouldComponentUpdate 返回 false，则不需要继续往下执行更新
+    return;
+  }
+
+  // 生命周期方法
+  if (inst.componentWillUpdate) inst.componentWillUpdate(nextProps, nextState);
+
+  // 获取老的element
+  var prevComponentInstance = this._renderedComponent;
+  var prevRenderedElement = prevComponentInstance._currentElement;
+
+  // 通过重新render 获取新的element
+  var nextRenderedElement = this._instance.render();
+
+  // 比较新旧元素
+  if (_shouldUpdateReactComponent(prevRenderedElement, nextRenderedElement)) {
+    // 两种元素为相同，需要更新，执行字节点更新
+    prevComponentInstance.receiveComponent(nextRenderedElement);
+    // 生命周期方法
+    inst.componentDidUpdate && inst.componentDidUpdate();
+  } else {
+    // 两种元素的类型不同，直接重新装载dom
+    var thisID = this._rootNodeID;
+
+    this._renderedComponent = this._instantiateReactComponent(
+      nextRenderedElement
+    );
+
+    var nextMarkup = _renderedComponent.mountComponent(thisID);
+    // 替换整个节点
+    $('[data-reactid="' + this._rootNodeID + '"]').replaceWith(nextMarkup);
+  }
+};
+
+/**
+ * 通过比较两个元素，判断是否需要更新
+ * @param {*} preElement  旧的元素
+ * @param {*} nextElement 新的元素
+ * @return {boolean}
+ */
+function _shouldUpdateReactComponent(prevElement, nextElement) {
+  if (prevElement != null && nextElement != null) {
+    var prevType = typeof prevElement;
+    var nextType = typeof nextElement;
+    if (prevType === "string" || prevType === "number") {
+      // 文本节点比较是否为相同类型节点
+      return nextType === "string" || nextType === "number";
+    } else {
+      // 通过type 和 key 判断是否为同类型节点和同一个节点
+      return (
+        nextType === "object" &&
+        prevElement.type === nextElement.type &&
+        prevElement.key === nextElement.key
+      );
+    }
+  }
+  return false;
+}
+```
+
+上述代码的大致流程是:
+
+- 合并 state
+- 更新 state
+- 然后看业务代码中是否实现生命周期方法 shouldComponentUpdate 有则调用，如果返回值为 false 则停止往下执行
+- 然后是生命周期方法 componentWillUpdate
+- 然后通过拿到新 state 的 instance 调用 render 方法拿到新的 element 和之旧的 element 进行比较
+- 如果要更新就继续调用对应的 component 类对应的 receiveComponent 就好啦，其实就是直接当甩手掌柜，事情直接丢给手下去办了。当然还有种情况是，两次生成的 element 差别太大，就不是一个类型的，那好办直接重新生成一份新的代码重新渲染一次就 o 了
+
+\_shouldUpdateReactComponent 是一个全局方法，这个是一种 React 的优化机制。用来决定是直接全部替换，还是使用很细微的改动。当两次 render 出来的子节点 key 不同，直接全部重新渲染一遍，替换就好了。否则，我们就得来个递归的更新，保证最小化的更新机制，这样可以不会有太大的闪烁。
+
+> 在这里本质上还是递归调用 receiveComponent 的过程。
+
+## 基本元素的 receiveComponent
+
+基础元素的更新包括两方面
+
+- 属性的更新，包括对特殊属性比如事件的处理
+- 子节点的更新
+
+子节点的更新比较复杂，是提升效率的关键，所以需要处理以下问题：
+
+- diff - 拿新的子节点树跟以前老的子节点树对比，找出他们之间的差别。
+- patch - 所有差别找出后，再一次性的去更新。
+
+下面是基础元素更新的基本结构
+
+```
+/**
+ * component 类 更新
+ * @param {*} nextElement
+ */
+ReactDOMComponent.prototype.receiveComponent = function(nextElement) {
+  var lastProps = this._currentElement.props;
+  var nextProps = nextElement.props;
+  this._currentElement = nextElement;
+  // 处理当前节点的属性
+  this._updateDOMProperties(lastProps, nextProps);
+  // 处理当前节点的子节点变动
+  this._updateDOMChildren(nextElement.props.children);
+};
+```

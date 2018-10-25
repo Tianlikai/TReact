@@ -10599,6 +10599,8 @@ ReactClass.prototype.render = function () {};
  */
 ReactClass.prototype.setState = function (newState) {
   // 拿到ReactCompositeComponent的实例
+  // 在装载的时候保存
+  // 代码：this._reactInternalInstance = this
   this._reactInternalInstance.receiveComponent(null, newState);
 };
 
@@ -10685,7 +10687,7 @@ ReactCompositeComponent.prototype.receiveComponent = function (nextElement, newS
 
   var inst = this._instance;
   // 合并state
-  var nextState = $.extend(inst.state, newState);
+  var nextState = Object.assign(inst.state, newState);
   var nextProps = this._currentElement.props;
 
   // 更新state
@@ -11159,10 +11161,10 @@ function ReactElement(type, key, props) {
 
 /***/ }),
 
-/***/ "./src/component/TodoList.js":
-/*!***********************************!*\
-  !*** ./src/component/TodoList.js ***!
-  \***********************************/
+/***/ "./src/demo/TodoList.js":
+/*!******************************!*\
+  !*** ./src/demo/TodoList.js ***!
+  \******************************/
 /*! exports provided: default */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
@@ -11214,13 +11216,74 @@ const TodoList = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createClass({
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _React__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./React */ "./src/React.js");
-/* harmony import */ var _component_TodoList__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./component/TodoList */ "./src/component/TodoList.js");
+/* harmony import */ var _demo_TodoList__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./demo/TodoList */ "./src/demo/TodoList.js");
 
 
 
-var Entry = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(_component_TodoList__WEBPACK_IMPORTED_MODULE_1__["default"]);
+/**
+ * ReactDOMTextComponent组件
+ */
+// var TextComponent = "hello world!";
+// var root = document.getElementById("root");
+
+// React.render(TextComponent, root);
+
+/**
+ * ReactDOMComponent组件
+ */
+// function sayHello() {
+//   alert("hello");
+// }
+// var div = React.createElement("div", {}, "jason");
+// var DOMComponent = React.createElement(
+//   "div",
+//   { key: "jason", age: 22, onclick: sayHello },
+//   "hello worlds!",
+//   div
+// );
+// var root = document.getElementById("root");
+// React.render(DOMComponent, root);
+
+/**
+ * ReactCompositeComponent组件
+ */
+var CompositeComponent = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createClass({
+  getInitialState: function () {
+    return {
+      count: 0
+    };
+  },
+  componentWillMount: function () {
+    console.log("声明周期: " + "componentWillMount");
+  },
+  componentDidMount: function () {
+    console.log("声明周期: " + "componentDidMount");
+  },
+  onChange: function (e) {
+    var count = ++this.state.count;
+    this.setState({
+      count: count
+    });
+  },
+  render: function () {
+    const count = this.state.count;
+    var h3 = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement("h3", { onclick: this.onChange.bind(this), class: "h3" }, `click me ${count}`);
+    var children = [h3];
+
+    return _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement("div", null, children);
+  }
+});
+var CompositeElement = _React__WEBPACK_IMPORTED_MODULE_0__["default"].createElement(CompositeComponent);
 var root = document.getElementById("root");
-_React__WEBPACK_IMPORTED_MODULE_0__["default"].render(Entry, root);
+
+_React__WEBPACK_IMPORTED_MODULE_0__["default"].render(CompositeElement, root);
+
+/**
+ * TodoList组件
+ */
+// var Entry = React.createElement(TodoList);
+// var root = document.getElementById("root");
+// React.render(Entry, root);
 
 /***/ }),
 
