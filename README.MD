@@ -696,7 +696,7 @@ function _shouldUpdateReactComponent(prevElement, nextElement) {
 
 > 在这里本质上还是递归调用 receiveComponent 的过程。
 
-## 基本元素的 receiveComponent
+#### 基本元素的 receiveComponent
 
 基础元素的更新包括两方面
 
